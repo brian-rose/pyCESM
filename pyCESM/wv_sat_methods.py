@@ -38,9 +38,14 @@ module wv_sat_methods
 ! elemental) interface.
 '''
 import numpy as np
-from wv_saturation import tmelt, h2otrip, tboil, ttrice, epsilo
+from physconst import tmelt, h2otrip, epsilo
+from wv_saturation import ttrice
 
 omeps = 1. - epsilo
+#! This value is slightly high, but it seems to be the value for the
+#! steam point of water originally (and most frequently) used in the
+#! Goff & Gratch scheme.
+tboil = 373.16
 
 # !---------------------------------------------------------------------
 # ! UTILITIES

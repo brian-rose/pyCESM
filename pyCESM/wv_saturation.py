@@ -35,16 +35,15 @@ module wv_saturation
 '''
 import numpy as np
 from physconst import epsilo, latvap, latice, rh2o, cpair, tmelt, h2otrip
+
+#! transition range from es over H2O to es over ice
+ttrice = 20.00
+
 from wv_sat_methods import (wv_sat_svp_water, wv_sat_svp_ice,
                             wv_sat_svp_trans,
                             wv_sat_qsat_water, wv_sat_qsat_ice)
 from wv_sat_methods import wv_sat_svp_to_qmmr as svp_to_qmmr
 from wv_sat_methods import wv_sat_svp_to_qsat as svp_to_qsat
-
-#! This value is slightly high, but it seems to be the value for the
-#! steam point of water originally (and most frequently) used in the
-#! Goff & Gratch scheme.
-tboil = 373.16
 
 #! Table of saturation vapor pressure values (estbl) from tmin to
 #! tmax+1 Kelvin, in one degree increments.  ttrice defines the
@@ -52,9 +51,6 @@ tboil = 373.16
 #! values.
 tmin = 127.16
 tmax = 375.16
-
-#! transition range from es over H2O to es over ice
-ttrice = 20.00
 
 #  ! Set coefficients for polynomial approximation of difference
 #  ! between saturation vapor press over water and saturation pressure
