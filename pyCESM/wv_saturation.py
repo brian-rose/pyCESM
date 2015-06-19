@@ -36,8 +36,10 @@ module wv_saturation
 import numpy as np
 from physconst import epsilo, latvap, latice, rh2o, cpair, tmelt, h2otrip
 
-#! transition range from es over H2O to es over ice
+# ! transition range from es over H2O to es over ice
 ttrice = 20.00
+# ! Precalculated because so frequently used.
+omeps = 1.0 - epsilo
 
 from wv_sat_methods import (wv_sat_svp_water, wv_sat_svp_ice,
                             wv_sat_svp_trans,
