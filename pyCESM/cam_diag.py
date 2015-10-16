@@ -155,10 +155,6 @@ def compute_diagnostics(run):
 #    run.MSE = run.DSE + const.Lhvap * run.Q #  J / kg
 
 
-def convert_gram(run):
-    '''Translate GRaM model output to the CAM naming conventions, so we can 
-    use the same diagnostic code.'''
-    pass
 
 def convert_am2(run):
     '''Translate AM2 model output to the CAM naming conventions, so we can 
@@ -177,11 +173,11 @@ def convert_am2(run):
     LHFLX = run.evap * physconst.latvap
     SHFLX = run.shflx
     FLNS = -run.lwflx
-    FLNSC = run.lwup_sfc_clr - run.lwdown_sfc_clr
-    FSDS = run.swdown_sfc
-    FSDSC = run.swdown_sfc_clr
-    FSNS = run.swdown_sfc - run.swup_sfc
-    FSNSC = run.swdown_sfc_clr - run.swup_sfc_clr
+    FLNSC = run.lwup_sfc_clr - run.lwdn_sfc_clr
+    FSDS = run.swdn_sfc
+    FSDSC = run.swdn_sfc_clr
+    FSNS = run.swdn_sfc - run.swup_sfc
+    FSNSC = run.swdn_sfc_clr - run.swup_sfc_clr
     #  snow flux
     PRECSC = run.snow_conv / physconst.rhoh2o
     PRECSL = run.snow_ls / physconst.rhoh2o
@@ -196,7 +192,7 @@ def convert_am2(run):
     # Geopotential height
     Z = run.z_full
     #  moisture and clouds
-    RELHUM = run.relhum
+    RELHUM = run.rh
     Q = run.sphum
     CLOUD = run.cld_amt_dyn
     #  surface pressure
