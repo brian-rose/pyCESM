@@ -17,20 +17,18 @@ def open_dataset(filename_or_ob, **kwargs):
     return fulldataset
 
 
-#   NEED TO MAKE ALL THIS MORE ROBUST TO VARYING NUMBER OF DIMENSIONS
-def inferred_heat_transport( energy_in, lat_deg ):
-    '''Returns the inferred heat transport (in PW) by integrating the net energy imbalance from pole to pole.'''
-    lat_rad = np.deg2rad( lat_deg )
-    return (1E-15 * 2 * np.math.pi * physconst.rearth**2 * 
-           integrate.cumtrapz(np.cos(lat_rad)*energy_in,x=lat_rad, initial=0.))
-
-def inferred_heat_transport_xray(energy_in):
-    lat_deg = energy_in.lat
+def inferred_heat_transport(energy_in):
+    lat_rad = np.deg2rad(energy_in.lat)
+    coslat = np.cos(lat_rad)
+    field = coslat*energy_in
+    ax = field.get_axis_num('lat')
     #  result as plain numpy array
-    result = inferred_heat_transport(energy_in, lat_deg)
-    result_xray = energy_in.copy()
+    integral = integrate.cumtrapz(field, x=lat_rad, initial=0., axis=ax)
+    result = (1E-15 * 2 * np.math.pi * physconst.rearth**2 * integral)
+    result_xray = field.copy()
     result_xray.values = result
     return result_xray
+   
 
 def overturning(V, lat_deg, p_mb):
     '''compute overturning mass streamfunction (SV) from meridional velocity V, latitude (degrees) and pressure levels (mb)'''
@@ -99,11 +97,11 @@ def compute_diagnostics(run):
     EminusP = Evap - Precip
     
     # heat transport terms
-    HT_total = inferred_heat_transport_xray(Rtoa)
-    HT_atm = inferred_heat_transport_xray(Fatmin)
-    HT_ocean = inferred_heat_transport_xray(-SurfaceHeatFlux)
+    HT_total = inferred_heat_transport(Rtoa)
+    HT_atm = inferred_heat_transport(Fatmin)
+    HT_ocean = inferred_heat_transport(-SurfaceHeatFlux)
     # atm. latent heat transport from moisture imbal.
-    HT_latent = inferred_heat_transport_xray(EminusP * physconst.latvap)
+    HT_latent = inferred_heat_transport(EminusP * physconst.latvap)
     # dry static energy transport as residual
     HT_dse = HT_atm - HT_latent  
 
