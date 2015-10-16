@@ -128,6 +128,8 @@ def compute_diagnostics(run):
         'HT_total': HT_total, 'HT_atm': HT_atm, 'HT_ocean': HT_ocean,
         'HT_latent': HT_latent, 'HT_dse': HT_dse,
     }
+    #  use the xray.Dataset.assign() method to create a new dataset
+    #  with all the new fields added, and return it.
     return run.assign(**newfields)
 
     #  still need to work on the rest!
@@ -152,3 +154,67 @@ def compute_diagnostics(run):
 #    run.DSE = const.cp * run.T + const.g * run.Z
 #    run.MSE = run.DSE + const.Lhvap * run.Q #  J / kg
 
+
+def convert_gram(run):
+    '''Translate GRaM model output to the CAM naming conventions, so we can 
+    use the same diagnostic code.'''
+    pass
+
+def convert_am2(run):
+    '''Translate AM2 model output to the CAM naming conventions, so we can 
+    use the same diagnostic code.'''
+    lev = run.pfull
+    TS = run.t_surf
+    T = run.temp
+    Ta = run.t_ref # near-surface air temperature
+    # TOA radiation
+    SOLIN = run.swdn_toa
+    FLNT = run.olr
+    FLNTC = run.olr_clr    
+    FSNT = run.swdn_toa - run.swup_toa
+    FSNTC = run.swdn_toa_clr - run.swup_toa_clr
+    #  surface energy budget terms matching CAM sign and unit conventions
+    LHFLX = run.evap * physconst.latvap
+    SHFLX = run.shflx
+    FLNS = -run.lwflx
+    FLNSC = run.lwup_sfc_clr - run.lwdown_sfc_clr
+    FSDS = run.swdown_sfc
+    FSDSC = run.swdown_sfc_clr
+    FSNS = run.swdown_sfc - run.swup_sfc
+    FSNSC = run.swdown_sfc_clr - run.swup_sfc_clr
+    #  snow flux
+    PRECSC = run.snow_conv / physconst.rhoh2o
+    PRECSL = run.snow_ls / physconst.rhoh2o
+    # hydrological cycle
+    QFLX = run.evap  # kg/m2/s or mm/s
+    PRECC = run.prec_conv / physconst.rhoh2o  # m/s
+    PRECL = run.prec_ls / physconst.rhoh2o
+    # precipitable water in kg/m2
+    TMQ = run.WVP
+    # near-surface wind speed
+    U10 = run.wind
+    # Geopotential height
+    Z = run.z_full
+    #  moisture and clouds
+    RELHUM = run.relhum
+    Q = run.sphum
+    CLOUD = run.cld_amt_dyn
+    #  surface pressure
+    PS = run.ps
+    #  velocity components
+    U = run.ucomp
+    V = run.vcomp
+    
+    newfields = {
+    'lev': lev, 'TS': TS, 'T': T, 'Ta': Ta, 
+    'SOLIN': SOLIN, 'FLNT': FLNT, 'FLNTC': FLNTC, 'FSNT': FSNT, 'FSNTC': FSNTC,
+    'LHFLX': LHFLX, 'SHFLX': SHFLX, 'FLNS': FLNS, 'FLNSC': FLNSC,
+    'FSDS': FSDS, 'FSDSC': FSDSC, 'FSNS': FSNS, 'FSNSC': FSNSC,
+    'PRECSC': PRECSC, 'PRECSL': PRECSL, 'PRECC': PRECC, 'PRECL': PRECL,
+    'QFLX': QFLX, 'TMQ': TMQ, 'U10': U10, 'Z': Z,
+    'RELHUM': RELHUM, 'Q': Q, 'CLOUD': CLOUD, 'PS': PS, 
+    'U': U, 'V': V,
+    }
+    #  use the xray.Dataset.assign() method to create a new dataset
+    #  with all the new fields added, and return it.
+    return run.assign(**newfields)
