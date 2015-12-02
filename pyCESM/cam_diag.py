@@ -8,12 +8,25 @@ import physconst
 
 #  A re-write of the old CESM.py custom class for use with the xray package
 
-def open_dataset(filename_or_ob, **kwargs):
+def open_dataset(filename_or_ob, verbose=True, **kwargs):
     '''Convenience method to open and return an xray dataset handle,
     with precomputed CAM-specific diagnostic quantities.
     '''
+    if verbose:
+        print 'Opening dataset ', filename_or_ob
     dataset = xray.open_dataset(filename_or_ob, **kwargs)
     fulldataset = compute_diagnostics(dataset)
+    if verbose:
+        print 'Gridpoint diagnostics have been computed.'
+    try:
+        fulldataset = compute_heat_transport(fulldataset)
+        if verbose:
+            print 'Heat transport diagnostics have been computed.'
+    except:
+        if verbose:
+            print 'Heat transport computation failed.'
+        else:
+            pass
     return fulldataset
 
 
@@ -28,7 +41,7 @@ def inferred_heat_transport(energy_in):
     result_xray = field.copy()
     result_xray.values = result
     return result_xray
-   
+
 
 def overturning(V, lat_deg, p_mb):
     '''compute overturning mass streamfunction (SV) from meridional velocity V, latitude (degrees) and pressure levels (mb)'''
@@ -41,9 +54,12 @@ def overturning(V, lat_deg, p_mb):
 
 def compute_diagnostics(run):
     '''Compute a bunch of additional diagnostics from regular CAM ouput.
-    
-    Input is an xray dataset containing a CAM simulation climatology'''
-    
+
+    Input is an xray dataset containing a CAM simulation climatology.
+
+    These diagnostics are all computed point by point and so should work
+    on any grid.'''
+
     sinlat = np.sin(np.deg2rad(run.lat))
     coslat = np.cos(np.deg2rad(run.lat))
     SST = run.TS - physconst.tmelt
@@ -63,7 +79,7 @@ def compute_diagnostics(run):
     SWup_toa = SWdown_toa - ASR
     ALBtoa = SWup_toa / SWdown_toa
 
-    #  surface energy budget terms, all defined as POSITIVE UP 
+    #  surface energy budget terms, all defined as POSITIVE UP
     #    (from ocean to atmosphere)
     LHF = run.LHFLX
     SHF = run.SHFLX
@@ -71,16 +87,16 @@ def compute_diagnostics(run):
     LWsfc_clr = run.FLNSC
     SWsfc = -run.FSNS
     SWsfc_clr = -run.FSNSC
-    SnowFlux =  ((run.PRECSC + run.PRECSL) * 
+    SnowFlux =  ((run.PRECSC + run.PRECSL) *
                       physconst.rhoh2o * physconst.latice)
     #  we'll let the SW down term be positive down
-    SWdown_sfc = run.FSDS  
+    SWdown_sfc = run.FSDS
     SWdown_sfc_clr = run.FSDSC
     SWdown_sfc_cld = SWdown_sfc - SWdown_sfc_clr
     SWup_sfc = SWsfc + SWdown_sfc
     ALBsfc = SWup_sfc / SWdown_sfc
     # all the net surface radiation terms are defined positive up
-    LWsfc_cld = LWsfc - LWsfc_clr  
+    LWsfc_cld = LWsfc - LWsfc_clr
     SWsfc_cld = SWsfc - SWsfc_clr
     # net upward radiation from surface
     SurfaceRadiation = LWsfc + SWsfc
@@ -90,20 +106,11 @@ def compute_diagnostics(run):
     SurfaceHeatFlux = SurfaceRadiation + LHF + SHF + SnowFlux
     # net heat flux into atmosphere
     Fatmin = Rtoa + SurfaceHeatFlux
-    
+
     #  hydrological cycle, all terms in  kg/m2/s or mm/s
     Evap = run.QFLX
     Precip = (run.PRECC + run.PRECL) * physconst.rhoh2o
     EminusP = Evap - Precip
-    
-    # heat transport terms
-    HT_total = inferred_heat_transport(Rtoa)
-    HT_atm = inferred_heat_transport(Fatmin)
-    HT_ocean = inferred_heat_transport(-SurfaceHeatFlux)
-    # atm. latent heat transport from moisture imbal.
-    HT_latent = inferred_heat_transport(EminusP * physconst.latvap)
-    # dry static energy transport as residual
-    HT_dse = HT_atm - HT_latent  
 
     newfields = {
         'sinlat': sinlat, 'coslat': coslat,
@@ -123,6 +130,28 @@ def compute_diagnostics(run):
         'SurfaceRadiation_cld': SurfaceRadiation_cld,
         'SurfaceHeatFlux': SurfaceHeatFlux, 'Fatmin': Fatmin,
         'Evap': Evap, 'Precip': Precip, 'EminusP': EminusP,
+    }
+    #  use the xray.Dataset.assign() method to create a new dataset
+    #  with all the new fields added, and return it.
+    return run.assign(**newfields)
+
+def compute_heat_transport(run):
+    '''Compute heat transport diagnostics from regular CAM ouput.
+
+    Input is an xray dataset containing a CAM simulation climatology.
+
+    These diagnostics involve integration so probably only work on
+    regular lat-lon grids (for now).'''
+
+    # heat transport terms
+    HT_total = inferred_heat_transport(run.Rtoa)
+    HT_atm = inferred_heat_transport(run.Fatmin)
+    HT_ocean = inferred_heat_transport(-run.SurfaceHeatFlux)
+    # atm. latent heat transport from moisture imbal.
+    HT_latent = inferred_heat_transport(run.EminusP * physconst.latvap)
+    # dry static energy transport as residual
+    HT_dse = HT_atm - HT_latent
+    newfields = {
         'HT_total': HT_total, 'HT_atm': HT_atm, 'HT_ocean': HT_ocean,
         'HT_latent': HT_latent, 'HT_dse': HT_dse,
     }
@@ -130,8 +159,9 @@ def compute_diagnostics(run):
     #  with all the new fields added, and return it.
     return run.assign(**newfields)
 
+
     #  still need to work on the rest!
-    
+
 #    run.dz = -physconst.rair * run.T / physconst.gravit * run.dp / run.p * 1.E-3  #  in km
 #    run.dTdp_moistadiabat = thermo.pseudoadiabat(run.T,run.p)
 #    run.dTdp,ignored = np.gradient(run.T) / run.dp
@@ -155,7 +185,7 @@ def compute_diagnostics(run):
 
 
 def convert_am2(run):
-    '''Translate AM2 model output to the CAM naming conventions, so we can 
+    '''Translate AM2 model output to the CAM naming conventions, so we can
     use the same diagnostic code.'''
     lev = run.pfull
     TS = run.t_surf
@@ -164,7 +194,7 @@ def convert_am2(run):
     # TOA radiation
     SOLIN = run.swdn_toa
     FLNT = run.olr
-    FLNTC = run.olr_clr    
+    FLNTC = run.olr_clr
     FSNT = run.swdn_toa - run.swup_toa
     FSNTC = run.swdn_toa_clr - run.swup_toa_clr
     #  surface energy budget terms matching CAM sign and unit conventions
@@ -198,15 +228,15 @@ def convert_am2(run):
     #  velocity components
     U = run.ucomp
     V = run.vcomp
-    
+
     newfields = {
-    'lev': lev, 'TS': TS, 'T': T, 'Ta': Ta, 
+    'lev': lev, 'TS': TS, 'T': T, 'Ta': Ta,
     'SOLIN': SOLIN, 'FLNT': FLNT, 'FLNTC': FLNTC, 'FSNT': FSNT, 'FSNTC': FSNTC,
     'LHFLX': LHFLX, 'SHFLX': SHFLX, 'FLNS': FLNS, 'FLNSC': FLNSC,
     'FSDS': FSDS, 'FSDSC': FSDSC, 'FSNS': FSNS, 'FSNSC': FSNSC,
     'PRECSC': PRECSC, 'PRECSL': PRECSL, 'PRECC': PRECC, 'PRECL': PRECL,
     'QFLX': QFLX, 'TMQ': TMQ, 'U10': U10, 'Z': Z,
-    'RELHUM': RELHUM, 'Q': Q, 'CLOUD': CLOUD, 'PS': PS, 
+    'RELHUM': RELHUM, 'Q': Q, 'CLOUD': CLOUD, 'PS': PS,
     'U': U, 'V': V,
     }
     #  use the xray.Dataset.assign() method to create a new dataset
