@@ -19,7 +19,7 @@ def open_dataset(filename_or_ob, verbose=True, **kwargs):
     if verbose:
         print 'Gridpoint diagnostics have been computed.'
     try:
-        fulldataset = compute_heat_transport(fulldataset)
+        fulldataset = compute_heat_transport_xray(fulldataset)
         if verbose:
             print 'Heat transport diagnostics have been computed.'
     except:
@@ -30,17 +30,38 @@ def open_dataset(filename_or_ob, verbose=True, **kwargs):
     return fulldataset
 
 
-def inferred_heat_transport(energy_in):
-    lat_rad = np.deg2rad(energy_in.lat)
+def inferred_heat_transport(energy_in, lat=None, latax=None):
+    '''Compute heat transport as integral of local energy imbalance.
+    Required input:
+        energy_in: energy imbalance in W/m2, positive in to domain
+    As either numpy array or xray.DataArray
+    If using plain numpy, need to supply these arguments:
+        lat: latitude in degrees
+        latax: axis number corresponding to latitude in the data
+            (axis over which to integrate)
+    returns the heat transport in PW.
+    Will attempt to return data in xray.DataArray if possible.
+    '''
+    if lat is None:
+        try: lat = energy_in.lat
+        except:
+            raise InputError('Need to supply latitude array if input data is not self-describing.')
+    lat_rad = np.deg2rad(lat)
     coslat = np.cos(lat_rad)
     field = coslat*energy_in
-    ax = field.get_axis_num('lat')
+    if latax is None:
+        try: latax = field.get_axis_num('lat')
+        except:
+            raise InputError('Need to supply axis number for integral over latitude.')
     #  result as plain numpy array
-    integral = integrate.cumtrapz(field, x=lat_rad, initial=0., axis=ax)
+    integral = integrate.cumtrapz(field, x=lat_rad, initial=0., axis=latax)
     result = (1E-15 * 2 * np.math.pi * physconst.rearth**2 * integral)
-    result_xray = field.copy()
-    result_xray.values = result
-    return result_xray
+    if isinstance(field, xray.DataArray):
+        result_xray = field.copy()
+        result_xray.values = result
+        return result_xray
+    else:
+        return result
 
 
 def overturning(V, lat_deg, p_mb):
@@ -135,7 +156,8 @@ def compute_diagnostics(run):
     #  with all the new fields added, and return it.
     return run.assign(**newfields)
 
-def compute_heat_transport(run):
+
+def compute_heat_transport_xray(run):
     '''Compute heat transport diagnostics from regular CAM ouput.
 
     Input is an xray dataset containing a CAM simulation climatology.
@@ -143,22 +165,34 @@ def compute_heat_transport(run):
     These diagnostics involve integration so probably only work on
     regular lat-lon grids (for now).'''
 
-    # heat transport terms
-    HT_total = inferred_heat_transport(run.Rtoa)
-    HT_atm = inferred_heat_transport(run.Fatmin)
-    HT_ocean = inferred_heat_transport(-run.SurfaceHeatFlux)
-    # atm. latent heat transport from moisture imbal.
-    HT_latent = inferred_heat_transport(run.EminusP * physconst.latvap)
-    # dry static energy transport as residual
-    HT_dse = HT_atm - HT_latent
+    HT = compute_heat_transport(run.Rtoa, run.SurfaceHeatFlux, run.EminusP)
     newfields = {
-        'HT_total': HT_total, 'HT_atm': HT_atm, 'HT_ocean': HT_ocean,
-        'HT_latent': HT_latent, 'HT_dse': HT_dse,
+        'HT_total': HT['total'], 'HT_atm': HT['atm'], 'HT_ocean': HT['ocean'],
+        'HT_latent': HT['latent'], 'HT_dse': HT['dse'],
     }
     #  use the xray.Dataset.assign() method to create a new dataset
     #  with all the new fields added, and return it.
     return run.assign(**newfields)
 
+
+def compute_heat_transport(TOAfluxDown, SurfaceFluxUp, EminusP,
+                           lat=None, latax=None):
+    # net heat flux into atmosphere
+    Fatmin = TOAfluxDown + SurfaceFluxUp
+
+    # heat transport terms
+    HT_total = inferred_heat_transport(TOAfluxDown, lat, latax)
+    HT_atm = inferred_heat_transport(Fatmin, lat, latax)
+    HT_ocean = inferred_heat_transport(-SurfaceFluxUp, lat, latax)
+    # atm. latent heat transport from moisture imbal.
+    HT_latent = inferred_heat_transport(EminusP * physconst.latvap, lat, latax)
+    # dry static energy transport as residual
+    HT_dse = HT_atm - HT_latent
+    HT = {
+        'total': HT_total, 'atm': HT_atm, 'ocean': HT_ocean,
+        'latent': HT_latent, 'dse': HT_dse,
+        }
+    return HT
 
     #  still need to work on the rest!
 
