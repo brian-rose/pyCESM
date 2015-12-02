@@ -52,7 +52,7 @@ def inferred_heat_transport(energy_in, lat=None, latax=None):
     if latax is None:
         try: latax = field.get_axis_num('lat')
         except:
-            raise InputError('Need to supply axis number for integral over latitude.')
+            raise ValueError('Need to supply axis number for integral over latitude.')
     #  result as plain numpy array
     integral = integrate.cumtrapz(field, x=lat_rad, initial=0., axis=latax)
     result = (1E-15 * 2 * np.math.pi * physconst.rearth**2 * integral)
