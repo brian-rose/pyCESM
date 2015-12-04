@@ -143,6 +143,7 @@ def compute_diagnostics(run):
         'LHF': LHF, 'SHF': SHF,
         'LWsfc': LWsfc, 'LWsfc_clr': LWsfc_clr, 'LWsfc_cld': LWsfc_cld,
         'SWsfc': SWsfc, 'SWsfc_clr': SWsfc_clr, 'SWsfc_cld': SWsfc_cld,
+        'SnowFlux': SnowFlux,
         'SWdown_sfc': SWdown_sfc, 'SWdown_sfc_clr': SWdown_sfc_clr,
             'SWdown_sfc_cld': SWdown_sfc_cld,
         'SWup_sfc': SWup_sfc, 'ALBsfc': ALBsfc,
