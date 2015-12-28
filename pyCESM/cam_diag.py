@@ -15,6 +15,13 @@ def open_dataset(filename_or_ob, verbose=True, **kwargs):
     if verbose:
         print 'Opening dataset ', filename_or_ob
     dataset = xray.open_dataset(filename_or_ob, **kwargs)
+    #  currently xray.Dataset has a property called .T which returns transpose()
+    #  but this creates a conflict with data named 'T'
+    #  Attempt to rename the T variable to TAIR
+    if ('T' in dataset and 'TAIR' not in dataset):
+        dataset = dataset.assign(TAIR = dataset['T'])
+    if verbose:
+        print 'Variable T accessible as TAIR.'
     fulldataset = compute_diagnostics(dataset)
     if verbose:
         print 'Gridpoint diagnostics have been computed.'
@@ -27,6 +34,18 @@ def open_dataset(filename_or_ob, verbose=True, **kwargs):
             print 'Heat transport computation failed.'
         else:
             pass
+    #  string data prevents us from doing arithmetic between two datasets
+    #  So move any string data to attributes (where it belongs)
+    #  Would be better to dynamically search for string data,
+    #  but these are the two fields that usually appear in my CAM output
+    string_fields = ['time_written', 'date_written']
+    for item in string_fields:
+        try:
+            fulldataset.attrs[item] = fulldataset[item].values
+            fulldataset = fulldataset.drop(item)
+        except:
+            pass
+
     return fulldataset
 
 
