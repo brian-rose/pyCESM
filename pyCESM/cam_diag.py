@@ -15,13 +15,13 @@ def open_dataset(filename_or_ob, verbose=True, **kwargs):
     if verbose:
         print 'Opening dataset ', filename_or_ob
     dataset = xray.open_dataset(filename_or_ob, **kwargs)
-    #  currently xray.Dataset has a property called .T which returns transpose()
+    #  xray.Dataset has a property called .T which returns transpose()
     #  but this creates a conflict with data named 'T'
-    #  Attempt to rename the T variable to TAIR
-    if ('T' in dataset and 'TAIR' not in dataset):
-        dataset = dataset.assign(TAIR = dataset['T'])
+    #  Attempt to rename the T variable to TA
+    if ('T' in dataset and 'TA' not in dataset):
+        dataset = dataset.rename({'T':'TA'})
     if verbose:
-        print 'Variable T accessible as TAIR.'
+        print 'Variable T renamed to TA.'
     fulldataset = compute_diagnostics(dataset)
     if verbose:
         print 'Gridpoint diagnostics have been computed.'
