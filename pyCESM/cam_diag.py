@@ -147,7 +147,12 @@ def zonal_average(field):
         return field
 
 def overturning_stokes(dataset):
-    '''Compute Stokes mass streamfunction.'''
+    '''Compute Stokes mass streamfunction.
+
+    Usage:
+    Assuming `run` is a xray.Dataset object containing CAM output:
+    psi_stokes = overturning_stokes(run)
+    '''
     from collections import OrderedDict
 
     VprimeTprime = zonal_average(dataset.VT - dataset.V * dataset.TA)
