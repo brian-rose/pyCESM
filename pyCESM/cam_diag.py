@@ -107,7 +107,7 @@ def inferred_heat_transport(energy_in, lat=None, latax=None):
         return result
 
 
-def overturning(V, lat=None, lev=None, levax=None):
+def overturning(V, lat=None, lev=None, levax=0):
     '''compute overturning mass streamfunction (SV)
     Required input:
         V: meridional velocity (m/s) (zonal average)
@@ -117,24 +117,24 @@ def overturning(V, lat=None, lev=None, levax=None):
         lev: pressure levels in mb or hPa
         levax: axis number corresponding to pressure in the data
             (axis over which to integrate)
+        levax argument is ignored if V is self-describing xray.DataArray
     Returns the overturning streamfunction in SV or 10^9 kg/s.
     Will attempt to return data in xray.DataArray if possible.
     '''
     if lat is None:
         try: lat = V.lat
         except:
-            raise InputError('Need to supply latitude array if input data is not self-describing.')
+            raise ValueError('Need to supply latitude array if input data is not self-describing.')
     if lev is None:
-        try: lev = V.lev
+        try:
+            lev = V.lev
         except:
-            raise InputError('Need to supply pressure array if input data is not self-describing.')
+            raise ValueError('Need to supply pressure array if input data is not self-describing.')
     lat_rad = np.deg2rad(lat)
     coslat = np.cos(lat_rad)
     field = coslat*V
-    if levax is None:
-        try: levax = field.get_axis_num('lev')
-        except:
-            raise ValueError('Need to supply axis number for integral over pressure levels.')
+    try: levax = field.get_axis_num('lev')
+    except: pass
     #  result as plain numpy array
     result = (2*np.pi*physconst.rearth/physconst.gravit *
             integrate.cumtrapz(field, lev*mb_to_Pa, axis=levax, initial=0)*1E-9)
