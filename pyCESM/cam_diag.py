@@ -156,7 +156,7 @@ def overturning_stokes(dataset):
     field, lat, lev, levax = _prep_overturning(VprimeThetaprime)
     levax_theta = theta.get_axis_num('lev')
     dtheta = theta.diff(dim='lev')
-    dp = xray.DataArray(np.diff(dataset.lev),
+    dp = xray.DataArray(np.diff(dataset.lev*mb_to_Pa),
                         dims='lev', coords={'lev': dtheta.lev})
     one_over_dthetadp = 1./ (dtheta / dp)
     #  Need to pad this with zeros
