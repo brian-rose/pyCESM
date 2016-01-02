@@ -1,12 +1,21 @@
-# CESM analysis routines
+'''
+Custom diagnostics for CESM / CAM model output
+This package is built on top of `xray` which provides the underlying
+grid-aware data structures.
+
+The method `open_dataset()` wraps the `xray.open_dataset()` method
+and attemps to compute a bunch of useful diagnostics in addition to returning
+a handle to the raw model output.
+'''
+
 import numpy as np
 import xray
 from scipy import integrate
 #from climlab import thermo
 
 import physconst
+mb_to_Pa = 100.  # conversion factor from mb to Pa
 
-#  A re-write of the old CESM.py custom class for use with the xray package
 
 def open_dataset(filename_or_ob, verbose=True, **kwargs):
     '''Convenience method to open and return an xray dataset handle,
@@ -32,6 +41,21 @@ def open_dataset(filename_or_ob, verbose=True, **kwargs):
     except:
         if verbose:
             print 'Heat transport computation failed.'
+        else:
+            pass
+    try:
+        # overturning mass streamfunction (in 10^9 kg/s or "mass Sverdrup")
+        V = fulldataset.V
+        if 'lon' in V.dims:
+            #  Take zonal average first
+            V = V.mean(dim='lon')
+        Psi = overturning(V)
+        fulldataset = fulldataset.assign(Psi = Psi)
+        if verbose:
+            print 'Overturning streamfunction has been computed.'
+    except:
+        if verbose:
+            print 'Overturning computation failed.'
         else:
             pass
     #  string data prevents us from doing arithmetic between two datasets
@@ -83,12 +107,43 @@ def inferred_heat_transport(energy_in, lat=None, latax=None):
         return result
 
 
-def overturning(V, lat_deg, p_mb):
-    '''compute overturning mass streamfunction (SV) from meridional velocity V, latitude (degrees) and pressure levels (mb)'''
-    coslat = np.cos(np.deg2rad( lat_deg ))
-    return (2*np.pi*physconst.rearth/physconst.gravit * coslat *
-            integrate.cumtrapz(V, p_mb*100, axis=0, initial=0)*1E-9)
-
+def overturning(V, lat=None, lev=None, levax=None):
+    '''compute overturning mass streamfunction (SV)
+    Required input:
+        V: meridional velocity (m/s) (zonal average)
+    As either numpy array or xray.DataArray
+    If using plain numpy, need to supply these arguments:
+        lat: latitude in degrees
+        lev: pressure levels in mb or hPa
+        levax: axis number corresponding to pressure in the data
+            (axis over which to integrate)
+    Returns the overturning streamfunction in SV or 10^9 kg/s.
+    Will attempt to return data in xray.DataArray if possible.
+    '''
+    if lat is None:
+        try: lat = V.lat
+        except:
+            raise InputError('Need to supply latitude array if input data is not self-describing.')
+    if lev is None:
+        try: lev = V.lev
+        except:
+            raise InputError('Need to supply pressure array if input data is not self-describing.')
+    lat_rad = np.deg2rad(lat)
+    coslat = np.cos(lat_rad)
+    field = coslat*V
+    if levax is None:
+        try: levax = field.get_axis_num('lev')
+        except:
+            raise ValueError('Need to supply axis number for integral over pressure levels.')
+    #  result as plain numpy array
+    result = (2*np.pi*physconst.rearth/physconst.gravit *
+            integrate.cumtrapz(field, lev*mb_to_Pa, axis=levax, initial=0)*1E-9)
+    if isinstance(field, xray.DataArray):
+        result_xray = field.copy()
+        result_xray.values = result
+        return result_xray
+    else:
+        return result
 
 #  SHOULD ALSO SET UNITS FOR EACH FIELD IN METADATA
 
@@ -237,7 +292,7 @@ def compute_heat_transport(TOAfluxDown, SurfaceFluxUp, EminusP,
 #    run.MSE = run.DSE + const.Lhvap * run.Q #  J / kg
 
 
-
+#  NOTE would be better to use the xray .rename() method to change variable names
 def convert_am2(run):
     '''Translate AM2 model output to the CAM naming conventions, so we can
     use the same diagnostic code.'''
