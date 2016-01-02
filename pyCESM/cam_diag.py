@@ -107,6 +107,75 @@ def inferred_heat_transport(energy_in, lat=None, latax=None):
         return result
 
 
+#%  overturning mass streamfunction
+#Psi_cam4 = 2*pi*a/g.*repmat(cos(lat_cam4/180*pi),[1 26 8]).*permute(cumtrapz(lev_cam4*100,permute(V_cam4,[2 1 3])),[2 1 3])*1E-10;
+#Psi_cam4_anom = Psi_cam4 - repmat(Psi_cam4(:,:,1),[1 1 8]);
+#%  Compute Stokes mass streamfunction
+#VprimeTprime_cam4 = VT_cam4 - V_cam4.*T_cam4;
+#VprimeTprime_cam4_anom = VprimeTprime_cam4 - repmat(VprimeTprime_cam4(:,:,1),[1 1 8]);
+#VprimeThetaprime_cam4 = VprimeTprime_cam4.*(1000./repmat(lev_cam4',[length(lat_cam4) 1 8])).^(0.286);
+#VprimeThetaprime_cam4_anom = VprimeThetaprime_cam4 - repmat(VprimeThetaprime_cam4(:,:,1),[1 1 8]);
+#oneoverdthetadp_cam4 = cat(2,1./(diff(THETA_cam4,1,2)./repmat((diff(100*lev_cam4))',[length(lat_cam4) 1 8])),zeros(length(lat_cam4),1,8));
+#PsiStokes_cam4 = 2*pi*repmat(cos(lat_cam4*pi/180),[1 length(lev_cam4) 8])*a/g.*VprimeThetaprime_cam4.*oneoverdthetadp_cam4*1E-10;
+#PsiStokes_cam4_anom = PsiStokes_cam4 - repmat(PsiStokes_cam4(:,:,1),[1 1 8]);
+#% anomalies in TEM overturning:  Psi + Psi_stokes
+
+def _prep_overturning(inputfield, lat=None, lev=None, levax=0):
+    if lat is None:
+        try: lat = inputfield.lat
+        except:
+            raise ValueError('Need to supply latitude array if input data is not self-describing.')
+    if lev is None:
+        try:
+            lev = inputfield.lev
+        except:
+            raise ValueError('Need to supply pressure array if input data is not self-describing.')
+    lat_rad = np.deg2rad(lat)
+    coslat = np.cos(lat_rad)
+    field = coslat * inputfield
+    try: levax = field.get_axis_num('lev')
+    except: pass
+    return field, lat, lev, levax
+
+def potential_temperature(TA):
+    return TA * (1000./TA.lev)**physconst.cappa
+
+def zonal_average(field):
+    if 'lon' in field.dims:
+        return field.mean(dim='lon')
+    else:
+        return field
+
+def overturning_stokes(dataset):
+    '''Compute Stokes mass streamfunction.'''
+    from collections import OrderedDict
+
+    VprimeTprime = zonal_average(dataset.VT - dataset.V * dataset.TA)
+    VprimeThetaprime = zonal_average(potential_temperature(VprimeTprime))
+    theta = zonal_average(potential_temperature(dataset.TA))
+    field, lat, lev, levax = _prep_overturning(VprimeThetaprime)
+    levax_theta = theta.get_axis_num('lev')
+    dtheta = theta.diff(dim='lev')
+    dp = xray.DataArray(np.diff(dataset.lev),
+                        dims='lev', coords={'lev': dtheta.lev})
+    one_over_dthetadp = 1./ (dtheta / dp)
+    #  Need to pad this with zeros
+    #  this is just to get correct dimensions
+    shape = list(theta.shape)
+    shape[levax_theta] = 1
+    newcoords = OrderedDict()
+    for dim in theta.dims:
+        if dim == 'lev':
+            newcoords[dim] = theta.lev[0:1]
+        else:
+            newcoords[dim] = theta[dim]
+    zero_pad = xray.DataArray(np.zeros(shape), coords=newcoords)
+    one_over_dthetadp_ext = xray.concat([zero_pad, one_over_dthetadp], dim='lev')
+
+    result = (2*np.pi*physconst.rearth/physconst.gravit *
+                VprimeThetaprime * one_over_dthetadp_ext * 1E-9)
+    return result
+
 def overturning(V, lat=None, lev=None, levax=0):
     '''compute overturning mass streamfunction (SV)
     Required input:
@@ -121,20 +190,7 @@ def overturning(V, lat=None, lev=None, levax=0):
     Returns the overturning streamfunction in SV or 10^9 kg/s.
     Will attempt to return data in xray.DataArray if possible.
     '''
-    if lat is None:
-        try: lat = V.lat
-        except:
-            raise ValueError('Need to supply latitude array if input data is not self-describing.')
-    if lev is None:
-        try:
-            lev = V.lev
-        except:
-            raise ValueError('Need to supply pressure array if input data is not self-describing.')
-    lat_rad = np.deg2rad(lat)
-    coslat = np.cos(lat_rad)
-    field = coslat*V
-    try: levax = field.get_axis_num('lev')
-    except: pass
+    field, lat, lev, levax = _prep_overturning(V, lat, lev, levax)
     #  result as plain numpy array
     result = (2*np.pi*physconst.rearth/physconst.gravit *
             integrate.cumtrapz(field, lev*mb_to_Pa, axis=levax, initial=0)*1E-9)
