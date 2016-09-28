@@ -1,30 +1,64 @@
 '''
 Custom diagnostics for CESM / CAM model output
-This package is built on top of `xray` which provides the underlying
+This package is built on top of `xarray` which provides the underlying
 grid-aware data structures.
 
-The method `open_dataset()` wraps the `xray.open_dataset()` method
+The method `open_dataset()` wraps the `xr.open_dataset()` method
 and attemps to compute a bunch of useful diagnostics in addition to returning
 a handle to the raw model output.
 '''
 
 import numpy as np
-import xray
+import xarray as xr
 from scipy import integrate
+from xarray.ufuncs import sin, cos, deg2rad
 #from climlab import thermo
 
 import physconst
 mb_to_Pa = 100.  # conversion factor from mb to Pa
 
 
+def _pressure_formula(Ak, Bk, P0, PS):
+    return Ak*P0 + Bk*PS
+
+def _reorder_pressure(p, run):
+    dims = run.Q.dims
+    if 'time' in dims:
+        if dims == ('time', 'lev', 'lat', 'lon'):
+            p = p.transpose('time', 'ilev', 'lat', 'lon')
+        elif dims == ('time', 'lev', 'lat'):
+            p = p.transpose('time', 'ilev', 'lat')
+        else:
+            raise ValueError('There is a problem with the dimensions.')
+    else:
+        pass
+    return p
+
+def compute_pressure_mid(run):
+    '''Convert hybrid sigma-pressure coordinates of mid-levels
+    to pressure in Pa.'''
+    p = _pressure_formula(Ak=run.hyam, Bk=run.hybm, P0=run.P0, PS=run.PS)
+    return _reorder_pressure(p, run)
+
+def compute_pressure_interface(run):
+    '''Convert hybrid sigma-pressure coordinates of interface-levels
+    to pressure in Pa.'''
+    p = _pressure_formula(Ak=run.hyai, Bk=run.hybi, P0=run.P0, PS=run.PS)
+    return _reorder_pressure(p, run)
+
+def compute_pressure_intervals(run):
+    '''Compute pressure intervals corresponding to each mid-level in Pa.'''
+    dP = compute_pressure_interface(run).diff(dim='ilev').values
+    return xr.DataArray(dP, coords=run['Q'].coords)
+
 def open_dataset(filename_or_ob, verbose=True, **kwargs):
-    '''Convenience method to open and return an xray dataset handle,
+    '''Convenience method to open and return an xarray dataset handle,
     with precomputed CAM-specific diagnostic quantities.
     '''
     if verbose:
         print 'Opening dataset ', filename_or_ob
-    dataset = xray.open_dataset(filename_or_ob, **kwargs)
-    #  xray.Dataset has a property called .T which returns transpose()
+    dataset = xr.open_dataset(filename_or_ob, **kwargs)
+    #  xr.Dataset has a property called .T which returns transpose()
     #  but this creates a conflict with data named 'T'
     #  Attempt to rename the T variable to TA
     if ('T' in dataset and 'TA' not in dataset):
@@ -35,7 +69,7 @@ def open_dataset(filename_or_ob, verbose=True, **kwargs):
     if verbose:
         print 'Gridpoint diagnostics have been computed.'
     try:
-        fulldataset = compute_heat_transport_xray(fulldataset)
+        fulldataset = compute_heat_transport_xarray(fulldataset)
         if verbose:
             print 'Heat transport diagnostics have been computed.'
     except:
@@ -45,11 +79,13 @@ def open_dataset(filename_or_ob, verbose=True, **kwargs):
             pass
     try:
         # overturning mass streamfunction (in 10^9 kg/s or "mass Sverdrup")
-        V = fulldataset.V
-        if 'lon' in V.dims:
-            #  Take zonal average first
-            V = V.mean(dim='lon')
-        Psi = overturning(V)
+        #V = fulldataset.V
+        #if 'lon' in V.dims:
+        #    #  Take zonal average first
+        #    V = V.mean(dim='lon')
+        #Psi = overturning(V)
+        #Psi = overturning(fulldataset.V)
+        Psi = overturning_improved(fulldataset)
         fulldataset = fulldataset.assign(Psi = Psi)
         if verbose:
             print 'Overturning streamfunction has been computed.'
@@ -77,13 +113,13 @@ def inferred_heat_transport(energy_in, lat=None, latax=None):
     '''Compute heat transport as integral of local energy imbalance.
     Required input:
         energy_in: energy imbalance in W/m2, positive in to domain
-    As either numpy array or xray.DataArray
+    As either numpy array or xr.DataArray
     If using plain numpy, need to supply these arguments:
         lat: latitude in degrees
         latax: axis number corresponding to latitude in the data
             (axis over which to integrate)
     returns the heat transport in PW.
-    Will attempt to return data in xray.DataArray if possible.
+    Will attempt to return data in xarray.DataArray if possible.
     '''
     if lat is None:
         try: lat = energy_in.lat
@@ -99,10 +135,10 @@ def inferred_heat_transport(energy_in, lat=None, latax=None):
     #  result as plain numpy array
     integral = integrate.cumtrapz(field, x=lat_rad, initial=0., axis=latax)
     result = (1E-15 * 2 * np.math.pi * physconst.rearth**2 * integral)
-    if isinstance(field, xray.DataArray):
-        result_xray = field.copy()
-        result_xray.values = result
-        return result_xray
+    if isinstance(field, xr.DataArray):
+        result_xarray = field.copy()
+        result_xarray.values = result
+        return result_xarray
     else:
         return result
 
@@ -130,9 +166,9 @@ def _prep_overturning(inputfield, lat=None, lev=None, levax=0):
             lev = inputfield.lev
         except:
             raise ValueError('Need to supply pressure array if input data is not self-describing.')
-    lat_rad = np.deg2rad(lat)
-    coslat = np.cos(lat_rad)
-    field = coslat * inputfield
+    lat_rad = deg2rad(lat)
+    coslat = cos(lat_rad)
+    field = inputfield * coslat
     try: levax = field.get_axis_num('lev')
     except: pass
     return field, lat, lev, levax
@@ -150,7 +186,7 @@ def overturning_stokes(dataset):
     '''Compute Stokes mass streamfunction.
 
     Usage:
-    Assuming `run` is a xray.Dataset object containing CAM output:
+    Assuming `run` is a xarray.Dataset object containing CAM output:
     psi_stokes = overturning_stokes(run)
     '''
     from collections import OrderedDict
@@ -161,7 +197,7 @@ def overturning_stokes(dataset):
     field, lat, lev, levax = _prep_overturning(VprimeThetaprime)
     levax_theta = theta.get_axis_num('lev')
     dtheta = theta.diff(dim='lev')
-    dp = xray.DataArray(np.diff(dataset.lev*mb_to_Pa),
+    dp = xr.DataArray(np.diff(dataset.lev*mb_to_Pa),
                         dims='lev', coords={'lev': dtheta.lev})
     one_over_dthetadp = 1./ (dtheta / dp)
     #  Need to pad this with zeros
@@ -174,8 +210,8 @@ def overturning_stokes(dataset):
             newcoords[dim] = theta.lev[0:1]
         else:
             newcoords[dim] = theta[dim]
-    zero_pad = xray.DataArray(np.zeros(shape), coords=newcoords)
-    one_over_dthetadp_ext = xray.concat([zero_pad, one_over_dthetadp], dim='lev')
+    zero_pad = xr.DataArray(np.zeros(shape), coords=newcoords)
+    one_over_dthetadp_ext = xr.concat([zero_pad, one_over_dthetadp], dim='lev')
 
     result = (2*np.pi*physconst.rearth/physconst.gravit *
                 VprimeThetaprime * one_over_dthetadp_ext * 1E-9)
@@ -185,39 +221,55 @@ def overturning(V, lat=None, lev=None, levax=0):
     '''compute overturning mass streamfunction (SV)
     Required input:
         V: meridional velocity (m/s) (zonal average)
-    As either numpy array or xray.DataArray
+    As either numpy array or xarray.DataArray
     If using plain numpy, need to supply these arguments:
         lat: latitude in degrees
         lev: pressure levels in mb or hPa
         levax: axis number corresponding to pressure in the data
             (axis over which to integrate)
-        levax argument is ignored if V is self-describing xray.DataArray
+        levax argument is ignored if V is self-describing xarray.DataArray
     Returns the overturning streamfunction in SV or 10^9 kg/s.
-    Will attempt to return data in xray.DataArray if possible.
+    Will attempt to return data in xarray.DataArray if possible.
     '''
     field, lat, lev, levax = _prep_overturning(V, lat, lev, levax)
+    #  Do we need to average zonally first?
+    if 'lon' in field.dims:
+        #  Take zonal average first
+        field = field.mean(dim='lon')
+    #  Otherwise we assume V is already zonally averaged
     #  result as plain numpy array
     result = (2*np.pi*physconst.rearth/physconst.gravit *
             integrate.cumtrapz(field, lev*mb_to_Pa, axis=levax, initial=0)*1E-9)
-    if isinstance(field, xray.DataArray):
-        result_xray = field.copy()
-        result_xray.values = result
-        return result_xray
+    if isinstance(field, xr.DataArray):
+        result_xarray = field.copy()
+        result_xarray.values = result
+        return result_xarray
     else:
         return result
+
+def overturning_improved(run):
+    #  Better method: use the actual layer pressure intervals to weight the integral
+    field = (run.V * run.dP * cos(deg2rad(run.lat)))
+    if 'lon' in field.dims:
+        field = field.mean(dim='lon')
+    factor = 2*np.pi*physconst.rearth/physconst.gravit*1E-9
+    psi = np.cumsum( field, axis=field.get_axis_num('lev'))*factor
+    return psi
+
 
 #  SHOULD ALSO SET UNITS FOR EACH FIELD IN METADATA
 
 def compute_diagnostics(run):
     '''Compute a bunch of additional diagnostics from regular CAM ouput.
 
-    Input is an xray dataset containing a CAM simulation climatology.
+    Input is an xarray dataset containing a CAM simulation climatology.
 
     These diagnostics are all computed point by point and so should work
     on any grid.'''
 
     sinlat = np.sin(np.deg2rad(run.lat))
     coslat = np.cos(np.deg2rad(run.lat))
+    dP = compute_pressure_intervals(run)
     SST = run.TS - physconst.tmelt
     #TS_global = global_mean(run.TS,run.lat)
     #SST_global = run.TS_global - const.tempCtoK
@@ -269,7 +321,7 @@ def compute_diagnostics(run):
     EminusP = Evap - Precip
 
     newfields = {
-        'sinlat': sinlat, 'coslat': coslat,
+        'sinlat': sinlat, 'coslat': coslat, 'dP': dP,
         'SST': SST,
         'SWdown_toa': SWdown_toa, 'SWup_toa': SWup_toa, 'ALBtoa': ALBtoa,
         'OLR': OLR, 'OLRclr': OLRclr, 'OLRcld': OLRcld,
@@ -288,15 +340,15 @@ def compute_diagnostics(run):
         'SurfaceHeatFlux': SurfaceHeatFlux, 'Fatmin': Fatmin,
         'Evap': Evap, 'Precip': Precip, 'EminusP': EminusP,
     }
-    #  use the xray.Dataset.assign() method to create a new dataset
+    #  use the xr.Dataset.assign() method to create a new dataset
     #  with all the new fields added, and return it.
     return run.assign(**newfields)
 
 
-def compute_heat_transport_xray(run):
+def compute_heat_transport_xarray(run):
     '''Compute heat transport diagnostics from regular CAM ouput.
 
-    Input is an xray dataset containing a CAM simulation climatology.
+    Input is an xarray dataset containing a CAM simulation climatology.
 
     These diagnostics involve integration so probably only work on
     regular lat-lon grids (for now).'''
@@ -306,7 +358,7 @@ def compute_heat_transport_xray(run):
         'HT_total': HT['total'], 'HT_atm': HT['atm'], 'HT_ocean': HT['ocean'],
         'HT_latent': HT['latent'], 'HT_dse': HT['dse'],
     }
-    #  use the xray.Dataset.assign() method to create a new dataset
+    #  use the xr.Dataset.assign() method to create a new dataset
     #  with all the new fields added, and return it.
     return run.assign(**newfields)
 
@@ -353,7 +405,7 @@ def compute_heat_transport(TOAfluxDown, SurfaceFluxUp, EminusP,
 #    run.MSE = run.DSE + const.Lhvap * run.Q #  J / kg
 
 
-#  NOTE would be better to use the xray .rename() method to change variable names
+#  NOTE would be better to use the xr .rename() method to change variable names
 def convert_am2(run):
     '''Translate AM2 model output to the CAM naming conventions, so we can
     use the same diagnostic code.'''
@@ -409,6 +461,6 @@ def convert_am2(run):
     'RELHUM': RELHUM, 'Q': Q, 'CLOUD': CLOUD, 'PS': PS,
     'U': U, 'V': V,
     }
-    #  use the xray.Dataset.assign() method to create a new dataset
+    #  use the xr.Dataset.assign() method to create a new dataset
     #  with all the new fields added, and return it.
     return run.assign(**newfields)
