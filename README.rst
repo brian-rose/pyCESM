@@ -23,13 +23,20 @@ Installation
 
 About pyCESM
 --------------
-Currently consists of Python / numpy implementations of some of the 
-thermodynamic routines (e.g. saturation vapor pressure and specific humidity)
-used by the CAM model.
+Currently consists of two parts:
 
-Based on version 1.2.1 of CESM
+- Python / numpy implementations of some of the 
+  thermodynamic routines (e.g. saturation vapor pressure and specific humidity)
+  used by the CAM atmospheric model.
+
+- A Python interface for working with CAM output that automates some grid-aware diagnostic calculations. 
+  This functionality is built on top of xarray_.
+
+Based on (and tested with) version 1.2.1 of CESM
 
 License
 ---------------
 This code is freely available under the MIT license.
 See the accompanying LICENSE file.
+
+.. _xarray: http://xarray.pydata.org
