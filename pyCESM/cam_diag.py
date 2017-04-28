@@ -22,34 +22,28 @@ def _pressure_formula(Ak, Bk, P0, PS):
     return Ak*P0 + Bk*PS
 
 def _reorder_pressure(p, run):
+    '''Reorder the input field to have the same dimension order as moisture'''
     dims = run.Q.dims
-    if 'time' in dims:
-        if dims == ('time', 'lev', 'lat', 'lon'):
-            p = p.transpose('time', 'ilev', 'lat', 'lon')
-        elif dims == ('time', 'lev', 'lat'):
-            p = p.transpose('time', 'ilev', 'lat')
-        else:
-            raise ValueError('There is a problem with the dimensions.')
-    else:
-        pass
-    return p
+    pdims = ['ilev' if x=='lev' else x for x in dims]
+    return p.transpose(*pdims)
 
 def compute_pressure_mid(run):
     '''Convert hybrid sigma-pressure coordinates of mid-levels
     to pressure in Pa.'''
     p = _pressure_formula(Ak=run.hyam, Bk=run.hybm, P0=run.P0, PS=run.PS)
-    return _reorder_pressure(p, run)
+    return p
 
 def compute_pressure_interface(run):
     '''Convert hybrid sigma-pressure coordinates of interface-levels
     to pressure in Pa.'''
     p = _pressure_formula(Ak=run.hyai, Bk=run.hybi, P0=run.P0, PS=run.PS)
-    return _reorder_pressure(p, run)
+    return p
 
 def compute_pressure_intervals(run):
     '''Compute pressure intervals corresponding to each mid-level in Pa.'''
-    dP = compute_pressure_interface(run).diff(dim='ilev').values
-    return xr.DataArray(dP, coords=run['Q'].coords)
+    dP = compute_pressure_interface(run).diff(dim='ilev')
+    dP_reordered = _reorder_pressure(dP,run)
+    return xr.DataArray(dP_reordered.values, coords=run['Q'].coords)
 
 def open_dataset(filename_or_ob, verbose=True, **kwargs):
     '''Convenience method to open and return an xarray dataset handle,
