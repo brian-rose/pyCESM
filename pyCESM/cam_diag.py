@@ -45,6 +45,7 @@ def compute_pressure_intervals(run):
     dP_reordered = _reorder_pressure(dP,run)
     return xr.DataArray(dP_reordered.values, coords=run['Q'].coords)
 
+
 def open_dataset(filename_or_ob, verbose=True, **kwargs):
     '''Convenience method to open and return an xarray dataset handle,
     with precomputed CAM-specific diagnostic quantities.
@@ -52,6 +53,12 @@ def open_dataset(filename_or_ob, verbose=True, **kwargs):
     if verbose:
         print 'Opening dataset ', filename_or_ob
     dataset = xr.open_dataset(filename_or_ob, **kwargs)
+    fulldataset = compute_all_diagnostics(dataset, verbose)
+    return fulldataset
+
+
+def compute_all_diagnostics(dataset, verbose=True):
+    '''Compute all CAM-specific diagnostic quantities from xarray dataset.'''
     #  xr.Dataset has a property called .T which returns transpose()
     #  but this creates a conflict with data named 'T'
     #  Attempt to rename the T variable to TA
