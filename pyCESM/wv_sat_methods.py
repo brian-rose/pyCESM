@@ -37,9 +37,12 @@ module wv_sat_methods
 ! wrap the function so that it can be given an explicit (non-
 ! elemental) interface.
 '''
+from __future__ import division
+from __future__ import print_function
+from __future__ import absolute_import
 import numpy as np
-from physconst import tmelt, h2otrip, epsilo
-from wv_saturation import ttrice
+from pyCESM.physconst import tmelt, h2otrip, epsilo
+from pyCESM.wv_saturation import ttrice
 
 omeps = 1. - epsilo
 #! This value is slightly high, but it seems to be the value for the

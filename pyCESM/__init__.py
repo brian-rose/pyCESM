@@ -1,8 +1,11 @@
-__version__ = '0.2.0'
+from __future__ import absolute_import
 
-__all__ = ['shr_const_mod', 'physconst', 'wv_saturation', 'cam_diag']
+__version__ = '0.3.0'
 
-import shr_const_mod
-import physconst
-import wv_saturation
-import cam_diag
+__all__ = ['shr_const_mod', 'physconst', 'wv_saturation', 'cam_diag','kernel']
+
+from . import shr_const_mod
+from . import physconst
+from . import wv_saturation
+from . import cam_diag
+from . import kernel

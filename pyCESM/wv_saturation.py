@@ -33,19 +33,22 @@ module wv_saturation
 !                                                                    !
 !--------------------------------------------------------------------!
 '''
+from __future__ import division
+from __future__ import print_function
+from __future__ import absolute_import
 import numpy as np
-from physconst import epsilo, latvap, latice, rh2o, cpair, tmelt, h2otrip
+from pyCESM.physconst import epsilo, latvap, latice, rh2o, cpair, tmelt, h2otrip
 
 # ! transition range from es over H2O to es over ice
 ttrice = 20.00
 # ! Precalculated because so frequently used.
 omeps = 1.0 - epsilo
 
-from wv_sat_methods import (wv_sat_svp_water, wv_sat_svp_ice,
+from pyCESM.wv_sat_methods import (wv_sat_svp_water, wv_sat_svp_ice,
                             wv_sat_svp_trans,
                             wv_sat_qsat_water, wv_sat_qsat_ice)
-from wv_sat_methods import wv_sat_svp_to_qmmr as svp_to_qmmr
-from wv_sat_methods import wv_sat_svp_to_qsat as svp_to_qsat
+from pyCESM.wv_sat_methods import wv_sat_svp_to_qmmr as svp_to_qmmr
+from pyCESM.wv_sat_methods import wv_sat_svp_to_qsat as svp_to_qsat
 
 #! Table of saturation vapor pressure values (estbl) from tmin to
 #! tmax+1 Kelvin, in one degree increments.  ttrice defines the
@@ -351,27 +354,27 @@ def qsat_ice(t, p, method='GoffGratch'):
 #end subroutine findsp_vc
 #
 #elemental subroutine findsp (q, t, p, use_ice, tsp, qsp, status)
-#!----------------------------------------------------------------------- 
-#! 
-#! Purpose: 
+#!-----------------------------------------------------------------------
+#!
+#! Purpose:
 #!     find the wet bulb temperature for a given t and q
 #!     in a longitude height section
-#!     wet bulb temp is the temperature and spec humidity that is 
+#!     wet bulb temp is the temperature and spec humidity that is
 #!     just saturated and has the same enthalpy
 #!     if q > qs(t) then tsp > t and qsp = qs(tsp) < q
 #!     if q < qs(t) then tsp < t and qsp = qs(tsp) > q
 #!
-#! Method: 
+#! Method:
 #! a Newton method is used
 #! first guess uses an algorithm provided by John Petch from the UKMO
 #! we exclude points where the physical situation is unrealistic
 #! e.g. where the temperature is outside the range of validity for the
 #!      saturation vapor pressure, or where the water vapor pressure
-#!      exceeds the ambient pressure, or the saturation specific humidity is 
+#!      exceeds the ambient pressure, or the saturation specific humidity is
 #!      unrealistic
-#! 
+#!
 #! Author: P. Rasch
-#! 
+#!
 #!-----------------------------------------------------------------------
 #!
 #!     input arguments

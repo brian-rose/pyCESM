@@ -6,7 +6,10 @@ for the pyCESM package
 Brian Rose
 June 2015
 '''
-from shr_const_mod import *
+from __future__ import division
+from __future__ import print_function
+from __future__ import absolute_import
+from pyCESM.shr_const_mod import *
 
 avogad      = SHR_CONST_AVOGAD     #! Avogadro's number (molecules/kmole)
 boltz       = SHR_CONST_BOLTZ      #! Boltzman's constant (J/K/molecule)
@@ -20,7 +23,7 @@ pi          = SHR_CONST_PI         #! 3.14...
 pstd        = SHR_CONST_PSTD       #! Standard pressure (Pascals)
 r_universal = SHR_CONST_RGAS       #! Universal gas constant (J/K/kmol)
 rhoh2o      = SHR_CONST_RHOFW      #! Density of liquid water (STP)
-spval       = SHR_CONST_SPVAL      #!special value 
+spval       = SHR_CONST_SPVAL      #!special value
 stebol      = SHR_CONST_STEBOL     #! Stefan-Boltzmann's constant (W/m^2/K^4)
 h2otrip     = SHR_CONST_TKTRIP     #! Triple point temperature of water (K)
 c0          = 2.99792458E8         #! Speed of light in a vacuum (m/s)
@@ -50,10 +53,10 @@ ra           = 1./SHR_CONST_REARTH            #! reciprocal of earth radius
 omega        = SHR_CONST_OMEGA                   #! earth rot ~ rad/sec
 rh2o         = SHR_CONST_RWV                     #! Water vapor gas constant ~ J/K/kg
 rair         = SHR_CONST_RDAIR   #! Dry air gas constant     ~ J/K/kg
-epsilo       = SHR_CONST_MWWV/SHR_CONST_MWDAIR   #! ratio of h2o to dry air molecular weights 
+epsilo       = SHR_CONST_MWWV/SHR_CONST_MWDAIR   #! ratio of h2o to dry air molecular weights
 zvir         = SHR_CONST_ZVIR                    #! (rh2o/rair) - 1
 cpvir        = SHR_CONST_CPVIR                   #! CPWV/CPDAIR - 1.0
 rhodair      = SHR_CONST_RHODAIR                 #! density of dry air at STP  ~ kg/m^3
 cappa        = (SHR_CONST_RGAS/SHR_CONST_MWDAIR)/SHR_CONST_CPDAIR  #! R/Cp
-#ez           ! Coriolis expansion coeff -> omega/sqrt(0.375)   
+#ez           ! Coriolis expansion coeff -> omega/sqrt(0.375)
 Cpd_on_Cpv   = SHR_CONST_CPDAIR/SHR_CONST_CPWV

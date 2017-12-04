@@ -7,14 +7,16 @@ The method `open_dataset()` wraps the `xr.open_dataset()` method
 and attemps to compute a bunch of useful diagnostics in addition to returning
 a handle to the raw model output.
 '''
-
+from __future__ import division
+from __future__ import print_function
+from __future__ import absolute_import
 import numpy as np
 import xarray as xr
 from scipy import integrate
 from xarray.ufuncs import sin, cos, deg2rad
 #from climlab import thermo
 
-import physconst
+from . import physconst
 mb_to_Pa = 100.  # conversion factor from mb to Pa
 
 
@@ -51,7 +53,7 @@ def open_dataset(filename_or_ob, verbose=True, **kwargs):
     with precomputed CAM-specific diagnostic quantities.
     '''
     if verbose:
-        print 'Opening dataset ', filename_or_ob
+        print('Opening dataset ', filename_or_ob)
     dataset = xr.open_dataset(filename_or_ob, **kwargs)
     fulldataset = compute_all_diagnostics(dataset, verbose)
     return fulldataset
@@ -65,17 +67,17 @@ def compute_all_diagnostics(dataset, verbose=True):
     if ('T' in dataset and 'TA' not in dataset):
         dataset = dataset.rename({'T':'TA'})
     if verbose:
-        print 'Variable T renamed to TA.'
+        print('Variable T renamed to TA.')
     fulldataset = compute_diagnostics(dataset)
     if verbose:
-        print 'Gridpoint diagnostics have been computed.'
+        print('Gridpoint diagnostics have been computed.')
     try:
         fulldataset = compute_heat_transport_xarray(fulldataset)
         if verbose:
-            print 'Heat transport diagnostics have been computed.'
+            print('Heat transport diagnostics have been computed.')
     except:
         if verbose:
-            print 'Heat transport computation failed.'
+            print('Heat transport computation failed.')
         else:
             pass
     try:
@@ -89,10 +91,10 @@ def compute_all_diagnostics(dataset, verbose=True):
         Psi = overturning_improved(fulldataset)
         fulldataset = fulldataset.assign(Psi = Psi)
         if verbose:
-            print 'Overturning streamfunction has been computed.'
+            print('Overturning streamfunction has been computed.')
     except:
         if verbose:
-            print 'Overturning computation failed.'
+            print('Overturning computation failed.')
         else:
             pass
     #  string data prevents us from doing arithmetic between two datasets

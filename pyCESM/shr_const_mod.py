@@ -6,6 +6,8 @@ for the pyCESM package
 Brian Rose
 June 2015
 '''
+from __future__ import division
+
 SHR_CONST_PI      = 3.14159265358979323846  #! pi
 SHR_CONST_CDAY    = 86400.0      #! sec in calendar day ~ sec
 SHR_CONST_SDAY    = 86164.0      #! sec in siderial day ~ sec
@@ -25,12 +27,12 @@ SHR_CONST_ZVIR    = (SHR_CONST_RWV/SHR_CONST_RDAIR)-1.0    #! RWV/RDAIR - 1.0
 SHR_CONST_KARMAN  = 0.4          #! Von Karman constant
 SHR_CONST_PSTD    = 101325.0     #! standard pressure ~ pascals
 SHR_CONST_PDB     = 0.0112372    #! ratio of 13C/12C in Pee Dee Belemnite (C isotope standard)
- 
+
 SHR_CONST_TKTRIP  = 273.16       #! triple point of fresh water        ~ K
-SHR_CONST_TKFRZ   = 273.15       #! freezing T of fresh water          ~ K 
+SHR_CONST_TKFRZ   = 273.15       #! freezing T of fresh water          ~ K
 SHR_CONST_TKFRZSW = SHR_CONST_TKFRZ - 1.8 #! freezing T of salt water  ~ K
 #! density of dry air at STP  ~ kg/m^3
-SHR_CONST_RHODAIR = SHR_CONST_PSTD/(SHR_CONST_RDAIR*SHR_CONST_TKFRZ)  
+SHR_CONST_RHODAIR = SHR_CONST_PSTD/(SHR_CONST_RDAIR*SHR_CONST_TKFRZ)
 
 SHR_CONST_RHOFW   = 1.000e3      #! density of fresh water     ~ kg/m^3
 SHR_CONST_RHOSW   = 1.026e3      #! density of sea water       ~ kg/m^3
@@ -44,7 +46,7 @@ SHR_CONST_CPICE   = 2.11727e3    #! specific heat of fresh ice ~ J/kg/K
 SHR_CONST_LATICE  = 3.337e5      #! latent heat of fusion      ~ J/kg
 SHR_CONST_LATVAP  = 2.501e6      #! latent heat of evaporation ~ J/kg
 #! latent heat of sublimation ~ J/kg
-SHR_CONST_LATSUB  = SHR_CONST_LATICE + SHR_CONST_LATVAP  
+SHR_CONST_LATSUB  = SHR_CONST_LATICE + SHR_CONST_LATVAP
 
 SHR_CONST_OCN_REF_SAL = 34.7     #! ocn ref salinity (psu)
 SHR_CONST_ICE_REF_SAL =  4.0     #! ice ref salinity (psu)

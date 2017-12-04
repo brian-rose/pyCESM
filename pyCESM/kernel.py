@@ -8,7 +8,8 @@ This module is designed to work with xarray datasets
 
 Call air temperature 'TA' instead of 'T', consistent with pyCESM
 """
-
+from __future__ import division
+from __future__ import print_function
 import numpy as np
 import xarray as xr
 #  Use climlab thermodynamic routines to calculate saturation specific humidity
